@@ -1,3 +1,9 @@
+Autor: Gabriel Pereira de Almeida
+Github: https://github.com/Gab-pereir
+Linkedin: https://www.linkedin.com/in/gabriel-pereira-almeida
+
+
+
 //BIBLIOTECAS---------------------------------------------------------------
 
 
