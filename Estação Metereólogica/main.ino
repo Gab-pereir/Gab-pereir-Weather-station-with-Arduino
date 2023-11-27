@@ -1,10 +1,4 @@
-Autor: Gabriel Pereira de Almeida
-Github: https://github.com/Gab-pereir
-Linkedin: https://www.linkedin.com/in/gabriel-pereira-almeida
-
-
-
-//BIBLIOTECAS---------------------------------------------------------------
+//BIBLIOTECAS --------------------------------------------------------------
 
 
 
@@ -18,8 +12,7 @@ Linkedin: https://www.linkedin.com/in/gabriel-pereira-almeida
 
 
 
-
-//CONSTANTES----------------------------------------------------------------
+//DEFINIÇÃO ----------------------------------------------------------------
 
 
 
@@ -29,8 +22,26 @@ Linkedin: https://www.linkedin.com/in/gabriel-pereira-almeida
 #define BMP_MISO (12)
 #define BMP_MOSI (11)
 #define BMP_CS   (10)
-#define sensorPower 7
-#define sensorPin 8
+
+
+
+//CONSTANTES ----------------------------------------------------------------
+
+int pin2 = 4; // Alterando para a pinagem desejada
+int pin1 = 3; // Alterando para a pinagem desejada
+unsigned long duracao1;
+unsigned long duracao2;
+unsigned long tempoInicial;
+unsigned long tempoAmostragem_ms = 3000;
+unsigned long ocupacaoPulsoBaixo1 = 0;
+unsigned long ocupacaoPulsoBaixo2 = 0;
+float razao1 = 0;
+float razao2 = 0;
+float concentracao1 = 0;
+float concentracao2 = 0;
+int rLed = A1; // Laranja
+int bLed = A2; // Azul
+int oLed = A3; // Vermelho
 
 
 DHT dht(DHTPIN, DHTTYPE); //PASSA OS PARÂMETROS PARA A FUNÇÃO
@@ -38,12 +49,20 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 Adafruit_BMP280 bmp; 
 
 
-
-
 //CONFIGURAÇÕES-------------------------------------------------------------
 
 
 void setup() {
+
+
+  Serial.begin(9600);
+  pinMode(4, INPUT); // Pin2 como 4
+  pinMode(3, INPUT); // Pin1 como 3
+  pinMode(oLed, OUTPUT);
+  pinMode(bLed, OUTPUT);
+  pinMode(rLed, OUTPUT);
+
+  tempoInicial = millis();
 
   //CONFIGURAÇÕES DO LCD
   lcd.init();
@@ -51,10 +70,6 @@ void setup() {
   lcd.backlight();
   dht.begin();
 
-  //CONFIGURAÇÃO DO SENSOR DE CHUVA
-  pinMode(sensorPower, OUTPUT);
-  digitalWrite(sensorPower, LOW);
-  Serial.begin(9600);
 
   //CONFIGURAÇÃO DO BMP
   while ( !Serial ) delay(100);   
@@ -62,18 +77,7 @@ void setup() {
   unsigned status;
   
   status = bmp.begin(0x76);
-  if (!status) {
-    Serial.println(F("Could not find a valid BMP280 sensor, check wiring or "
-                      "try a different address!"));
-    Serial.print("SensorID was: 0x"); Serial.println(bmp.sensorID(),16);
-    Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
-    Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
-    Serial.print("        ID of 0x60 represents a BME 280.\n");
-    Serial.print("        ID of 0x61 represents a BME 680.\n");
-    while (1) delay(10);
-  }
-
-  
+ 
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
                   Adafruit_BMP280::SAMPLING_X2,    
                   Adafruit_BMP280::SAMPLING_X16,   
@@ -85,17 +89,31 @@ void setup() {
 //REPETIÇÃO-----------------------------------------------------------------
 
 void loop() {
-  
-  delay(2000); 
 
-  //DECLARAÇÃO DAS VARIÁVEIS
+   duracao1 = pulseIn(pin1, LOW);
+  duracao2 = pulseIn(pin2, LOW);
+  ocupacaoPulsoBaixo1 = ocupacaoPulsoBaixo1 + duracao1;
+  ocupacaoPulsoBaixo2 = ocupacaoPulsoBaixo2 + duracao2;
+
+  if ((millis() - tempoInicial) > tempoAmostragem_ms) {
+    razao1 = ocupacaoPulsoBaixo1 / (tempoAmostragem_ms * 10.0);
+    concentracao1 = 1.1 * pow(razao1, 3) - 3.8 * pow(razao1, 2) + 520 * razao1 + 0.62;
+
+    razao2 = ocupacaoPulsoBaixo2 / (tempoAmostragem_ms * 10.0);
+    concentracao2 = 1.1 * pow(razao2, 3) - 3.8 * pow(razao2, 2) + 520 * razao2 + 0.62;
+
+    int qualidadeAr;
+  
+  //DECLARAÇÃO DAS VARIÁVEIS LOCAIS
   float hum  = dht.readHumidity();   
   float temp = dht.readTemperature();
   float pre = bmp.readPressure();
   float alt = bmp.readAltitude(1013.25);
 
-  lcd.clear();
 
+  
+  lcd.clear();
+  
   
     //CHECAR ESTADO DOS SENSORES
     if (isnan(hum) || isnan(temp)) {
@@ -139,5 +157,52 @@ void loop() {
     lcd.print(" m");
     delay (2000);
     lcd.clear();
+
+     if (concentracao1 < 1000) {
+      qualidadeAr = 1; // BOM
+      digitalWrite(oLed, LOW);
+      digitalWrite(bLed, HIGH);
+      digitalWrite(rLed, LOW);
+    } else if (concentracao1 >= 1000 && concentracao1 < 10000) {
+      qualidadeAr = 2; // MÉDIO
+      digitalWrite(oLed, HIGH);
+      digitalWrite(bLed, LOW);
+      digitalWrite(rLed, LOW);
+    } else if (concentracao1 >= 10000) {
+      qualidadeAr = 3; // PÉSSIMO
+      digitalWrite(oLed, LOW);
+      digitalWrite(bLed, LOW);
+      digitalWrite(rLed, HIGH);
+    }
+
+    // Exibir a qualidade do ar no LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Qualidade do Ar:");
+
+    lcd.setCursor(0, 1);
+    switch (qualidadeAr) {
+      case 1:
+        lcd.setCursor(6,1);
+        lcd.print("Bom");
+        break;
+      case 2:
+        lcd.setCursor(4,1);
+        lcd.print("Médio");
+        break;
+      case 3:
+        lcd.setCursor(2,1);
+        lcd.print("Médio");        
+        break;
+
+        ocupacaoPulsoBaixo1 = 0;
+    ocupacaoPulsoBaixo2 = 0;
+    tempoInicial = millis();
+    }
   }
+ }
 }
+
+
+
+
