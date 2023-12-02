@@ -188,11 +188,11 @@ void loop() {
         break;
       case 2:
         lcd.setCursor(4,1);
-        lcd.print("Médio");
+        lcd.print("Mediano");
         break;
       case 3:
         lcd.setCursor(2,1);
-        lcd.print("Médio");        
+        lcd.print("Ruim");        
         break;
 
         ocupacaoPulsoBaixo1 = 0;
